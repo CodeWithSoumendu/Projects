@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web SCADA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom spinning animation for the motor */
+        .spin { animation: spin 2s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center font-sans">
+
+    <div class="bg-slate-800 p-8 rounded-xl shadow-2xl w-96 text-center border border-slate-700">
+        <h1 class="text-3xl font-bold mb-6 tracking-wide text-slate-100">SCADA Dashboard</h1>
+        
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-slate-700 p-4 rounded-lg">
+                <p class="text-slate-400 text-sm font-semibold uppercase">Temperature</p>
+                <p id="temp-val" class="text-2xl font-bold text-amber-400 mt-1">-- °C</p>
+            </div>
+            <div class="bg-slate-700 p-4 rounded-lg">
+                <p class="text-slate-400 text-sm font-semibold uppercase">Pressure</p>
+                <p id="press-val" class="text-2xl font-bold text-blue-400 mt-1">-- Bar</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center mb-8">
+            <div class="relative">
+                <!-- Motor Graphic -->
+                <div id="motor-graphic" class="w-24 h-24 rounded-full border-4 border-slate-600 bg-red-500 flex items-center justify-center transition-colors duration-300">
+                    <!-- Inner fan blade details -->
+                    <div id="motor-blades" class="w-20 h-20 rounded-full border-dashed border-4 border-white opacity-50 transition-all duration-300"></div>
+                </div>
+            </div>
+            <p class="mt-4 text-slate-300 font-medium tracking-wide">Motor Status: <span id="motor-text" class="font-bold text-red-400">OFF</span></p>
+        </div>
+
+        <button onclick="toggleMotor()" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
+            TOGGLE MOTOR
+        </button>
+    </div>
+
+    <script>
+        // Connect to the Python FastAPI WebSocket
+        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+        
+        const tempVal = document.getElementById("temp-val");
+        const pressVal = document.getElementById("press-val");
+        const motorGraphic = document.getElementById("motor-graphic");
+        const motorBlades = document.getElementById("motor-blades");
+        const motorText = document.getElementById("motor-text");
+
+        ws.onmessage = function(event) {
+            // Parse the incoming JSON data from Python
+            const data = JSON.parse(event.data);
+            
+            // Update UI Elements
+            tempVal.innerText = data.temperature.toFixed(2) + " °C";
+            pressVal.innerText = data.pressure.toFixed(2) + " Bar";
+            
+            // Handle Motor Animation and Colors
+            if (data.motor) {
+                motorGraphic.classList.replace("bg-red-500", "bg-green-500");
+                motorBlades.classList.add("spin");
+                motorText.innerText = "RUNNING";
+                motorText.classList.replace("text-red-400", "text-green-400");
+            } else {
+                motorGraphic.classList.replace("bg-green-500", "bg-red-500");
+                motorBlades.classList.remove("spin");
+                motorText.innerText = "OFF";
+                motorText.classList.replace("text-green-400", "text-red-400");
+            }
+        };
+
+        function toggleMotor() {
+            // Send a JSON command back to Python to toggle the tag
+            ws.send(JSON.stringify({"command": "toggle_motor"}));
+        }
+    </script>
+</body>
+</html>
